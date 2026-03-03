@@ -1,0 +1,106 @@
+# -------------------------------------------------------
+# DLinear (AAAI 2023 - Are Transformers Effective for Time Series Forecasting?)
+# https://arxiv.org/pdf/2205.13504
+# -------------------------------------------------------
+DLinear:
+  moving_avg: 25      # kernel size for series decomposition
+  enc_in: 7           # number of input features (updated at runtime via update_information)
+  dropout: 0.1
+  individual: false   # false: shared linear layer across all variates
+
+# -------------------------------------------------------
+# PatchTST (ICLR 2023 - A Time Series is Worth 64 Words)
+# https://arxiv.org/pdf/2211.14730
+# -------------------------------------------------------
+PatchTST:
+  enc_in: 7           # number of input features (updated at runtime)
+  e_layers: 3         # number of transformer encoder layers
+  n_heads: 16         # number of attention heads
+  d_model: 128        # model dimension
+  d_ff: 256           # feedforward dimension
+  dropout: 0.2
+  fc_dropout: 0.2
+  head_dropout: 0.0
+  individual: false
+  patch_len: 16       # patch length
+  stride: 8           # patch stride
+  padding_patch: end  # padding strategy
+  revin: true         # reversible instance normalization
+  affine: false       # affine transformation in RevIN
+  subtract_last: false
+  decomposition: false
+  kernel_size: 25     # kernel size for decomposition (used if decomposition=true)
+
+# -------------------------------------------------------
+# Autoformer (NeurIPS 2021 - Autoformer: Decomposition Transformers)
+# https://arxiv.org/abs/2106.13008
+# -------------------------------------------------------
+Autoformer:
+  enc_in: 7           # encoder input features (updated at runtime)
+  dec_in: 7           # decoder input features (updated at runtime)
+  c_out: 7            # output features (updated at runtime)
+  d_model: 512        # model dimension
+  n_heads: 8          # number of attention heads
+  e_layers: 2         # number of encoder layers
+  d_layers: 1         # number of decoder layers
+  d_ff: 2048          # feedforward dimension
+  moving_avg: 25      # kernel size for series decomposition
+  factor: 1           # autocorrelation factor
+  dropout: 0.05
+  embed: timeF        # time embedding type: timeF or fixed or learned
+  freq: h             # time frequency: h(hourly), t(minutely), d(daily) ...
+  activation: gelu
+  output_attention: false
+
+# -------------------------------------------------------
+# iTransformer (ICLR 2024 - iTransformer: Inverted Transformers Are Effective for Time Series Forecasting)
+# https://arxiv.org/abs/2310.06625
+# -------------------------------------------------------
+iTransformer:
+  enc_in: 7           # number of input features (updated at runtime)
+  d_model: 512        # model dimension
+  n_heads: 8          # number of attention heads
+  e_layers: 3         # number of encoder layers
+  d_ff: 512           # feedforward dimension
+  factor: 1
+  dropout: 0.1
+  embed: timeF
+  freq: h
+  activation: gelu
+  output_attention: false
+
+# -------------------------------------------------------
+# Informer (AAAI 2021 Best Paper - Informer: Efficient Transformer for Long Sequence Forecasting)
+# https://arxiv.org/abs/2012.07436
+# -------------------------------------------------------
+Informer:
+  enc_in: 7           # encoder input features (updated at runtime)
+  dec_in: 7           # decoder input features (updated at runtime)
+  c_out: 7            # output features (updated at runtime)
+  d_model: 512        # model dimension
+  n_heads: 8          # number of attention heads
+  e_layers: 2         # number of encoder layers
+  d_layers: 1         # number of decoder layers
+  d_ff: 2048          # feedforward dimension
+  factor: 5           # ProbSparse attention factor (c in O(L log L))
+  dropout: 0.05
+  embed: timeF        # time embedding type
+  freq: h             # time frequency
+  activation: gelu
+  output_attention: false
+
+# -------------------------------------------------------
+# TimesNet (ICLR 2023 - TimesNet: Temporal 2D-Variation Modeling)
+# https://arxiv.org/abs/2210.02186
+# -------------------------------------------------------
+TimesNet:
+  enc_in: 7           # number of input features (updated at runtime)
+  c_out: 7            # output features (updated at runtime)
+  d_model: 64         # model dimension
+  d_ff: 64            # feedforward dimension (Inception block intermediate channels)
+  e_layers: 2         # number of TimesBlock layers
+  top_k: 5            # top-k periods from FFT
+  num_kernels: 6      # number of kernels in Inception block
+  dropout: 0.1
+  embed: timeF
+  freq: h

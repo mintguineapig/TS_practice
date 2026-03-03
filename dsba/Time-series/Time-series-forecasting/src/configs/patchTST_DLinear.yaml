@@ -1,0 +1,115 @@
+# ================================================================
+# patchTST_DLinear.yaml
+# Dataset-specific hyperparameters following the official papers
+# ================================================================
+
+# -------------------------------------------------------
+# DLinear (AAAI 2023 - Are Transformers Effective for Time Series Forecasting?)
+# https://arxiv.org/pdf/2205.13504
+# Official repo: https://github.com/cure-lab/LTSF-Linear
+#
+# Note: DLinear uses the same hyperparameters across all ETT datasets
+# (Official scripts: batch_size=32, lr=0.005 for ETTh; lr=0.001 for ETTm)
+# We unify batch_size=128 and lr=0.0001 to match our training framework.
+# -------------------------------------------------------
+DLinear:
+  moving_avg: 25      # kernel size for series decomposition
+  enc_in: 7           # updated at runtime via update_information
+  dropout: 0.1
+  individual: false   # shared linear layer across all variates
+
+# -------------------------------------------------------
+# PatchTST (ICLR 2023 - A Time Series is Worth 64 Words)
+# https://arxiv.org/pdf/2211.14730
+# Official repo: https://github.com/yuqinie98/PatchTST
+#
+# Key finding: ETTh1/ETTh2 use a SMALLER model (d_model=16, n_heads=4, d_ff=128)
+#              ETTm1/ETTm2 use a LARGER model (d_model=128, n_heads=16, d_ff=256)
+# Both use patch_len=16, stride=8, e_layers=3
+#
+# Official script params (multivariate, seq_len=336, pred_len=96~720):
+#   ETTh1: d_model=16, n_heads=4, d_ff=128, dropout=0.3, fc_dropout=0.3, lr=0.0001
+#   ETTh2: d_model=16, n_heads=4, d_ff=128, dropout=0.3, fc_dropout=0.3, lr=0.0001
+#   ETTm1: d_model=128, n_heads=16, d_ff=256, dropout=0.2, fc_dropout=0.2, lr=0.0001
+#   ETTm2: d_model=128, n_heads=16, d_ff=256, dropout=0.2, fc_dropout=0.2, lr=0.0001
+# -------------------------------------------------------
+
+# --- PatchTST for ETTh1 ---
+PatchTST_ETTh1:
+  enc_in: 7           # updated at runtime
+  e_layers: 3
+  n_heads: 4          # paper: 4 for ETTh datasets
+  d_model: 16         # paper: 16 for ETTh datasets
+  d_ff: 128           # paper: 128 for ETTh datasets
+  dropout: 0.3        # paper: 0.3 for ETTh datasets
+  fc_dropout: 0.3     # paper: 0.3 for ETTh datasets
+  head_dropout: 0.0
+  individual: false
+  patch_len: 16
+  stride: 8
+  padding_patch: end
+  revin: true
+  affine: false
+  subtract_last: false
+  decomposition: false
+  kernel_size: 25
+
+# --- PatchTST for ETTh2 ---
+PatchTST_ETTh2:
+  enc_in: 7           # updated at runtime
+  e_layers: 3
+  n_heads: 4          # paper: 4 for ETTh datasets
+  d_model: 16         # paper: 16 for ETTh datasets
+  d_ff: 128           # paper: 128 for ETTh datasets
+  dropout: 0.3        # paper: 0.3 for ETTh datasets
+  fc_dropout: 0.3     # paper: 0.3 for ETTh datasets
+  head_dropout: 0.0
+  individual: false
+  patch_len: 16
+  stride: 8
+  padding_patch: end
+  revin: true
+  affine: false
+  subtract_last: false
+  decomposition: false
+  kernel_size: 25
+
+# --- PatchTST for ETTm1 ---
+PatchTST_ETTm1:
+  enc_in: 7           # updated at runtime
+  e_layers: 3
+  n_heads: 16         # paper: 16 for ETTm datasets
+  d_model: 128        # paper: 128 for ETTm datasets
+  d_ff: 256           # paper: 256 for ETTm datasets
+  dropout: 0.2        # paper: 0.2 for ETTm datasets
+  fc_dropout: 0.2     # paper: 0.2 for ETTm datasets
+  head_dropout: 0.0
+  individual: false
+  patch_len: 16
+  stride: 8
+  padding_patch: end
+  revin: true
+  affine: false
+  subtract_last: false
+  decomposition: false
+  kernel_size: 25
+
+# --- PatchTST for ETTm2 ---
+PatchTST_ETTm2:
+  enc_in: 7           # updated at runtime
+  e_layers: 3
+  n_heads: 16         # paper: 16 for ETTm datasets
+  d_model: 128        # paper: 128 for ETTm datasets
+  d_ff: 256           # paper: 256 for ETTm datasets
+  dropout: 0.2        # paper: 0.2 for ETTm datasets
+  fc_dropout: 0.2     # paper: 0.2 for ETTm datasets
+  head_dropout: 0.0
+  individual: false
+  patch_len: 16
+  stride: 8
+  padding_patch: end
+  revin: true
+  affine: false
+  subtract_last: false
+  decomposition: false
+  kernel_size: 25
