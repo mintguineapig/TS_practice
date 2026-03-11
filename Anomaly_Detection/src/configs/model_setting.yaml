@@ -1,0 +1,15 @@
+LSTM_AE:
+  feature_num: 5
+  rnn_type: 'LSTM'
+  rnn_inp_size: 64
+  rnn_hid_size: 128
+  nlayers: 2
+  dropout: 0.1
+  res_connection: false
+  return_hiddens: false
+
+USAD:
+  # latent_size: 잠재 공간 크기 (w_size = seq_len * dim_in 에 비해 충분히 작게 설정)
+  # 논문 기본값은 w_size / 4 ~ w_size / 10 권장
+  latent_size: 40
+  # seq_len, dim_in 은 main.py 의 update_information 에서 자동으로 주입됩니다.
