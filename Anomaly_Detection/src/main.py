@@ -80,11 +80,10 @@ def main(cfg):
                                                 )
     
     # update cfg
-    update_information(cfg         =  cfg,
+    update_information(cfg         =  cfg, 
                         section    =  'MODELSETTING',
                         dim_in     =  var,
                         batch_size =  cfg.DATASET.batch_size,
-                        seq_len    =  cfg.DATASET.seq_len,   # USAD 등 window 크기가 필요한 모델용
                         )
     
     # save configs
@@ -116,48 +115,25 @@ def main(cfg):
     
     # set training
     criterion = create_criterion(loss_name=cfg.LOSS.loss_name)
-
-    # ── USAD: AE1 / AE2 를 각각 다른 optimizer 로 학습 ──────────────────────
-    if cfg.MODEL.modelname == 'USAD':
-        # optimizer  : Encoder + Decoder1 (Phase 1)
-        ae1_params = list(model.encoder.parameters()) + list(model.decoder1.parameters())
-        optimizer  = create_optimizer(model=model, opt_name=cfg.OPTIMIZER.opt_name,
-                                      lr=cfg.OPTIMIZER.lr, params=cfg.OPTIMIZER.params)
-        optimizer.param_groups.clear()
-        optimizer.add_param_group({'params': ae1_params})
-
-        # optimizer2 : Encoder + Decoder2 (Phase 2)
-        ae2_params = list(model.encoder.parameters()) + list(model.decoder2.parameters())
-        optimizer2 = create_optimizer(model=model, opt_name=cfg.OPTIMIZER.opt_name,
-                                      lr=cfg.OPTIMIZER.lr, params=cfg.OPTIMIZER.params)
-        optimizer2.param_groups.clear()
-        optimizer2.add_param_group({'params': ae2_params})
-
-        model, optimizer, optimizer2, trn_dataloader, val_dataloader, tst_dataloader = \
-            accelerator.prepare(model, optimizer, optimizer2,
-                                trn_dataloader, val_dataloader, tst_dataloader)
-    else:
-        optimizer  = create_optimizer(model=model, opt_name=cfg.OPTIMIZER.opt_name,
-                                      lr=cfg.OPTIMIZER.lr, params=cfg.OPTIMIZER.params)
-        optimizer2 = None
-        model, optimizer, trn_dataloader, val_dataloader, tst_dataloader = accelerator.prepare(
-            model, optimizer, trn_dataloader, val_dataloader, tst_dataloader
-        )
+    optimizer = create_optimizer(model=model, opt_name=cfg.OPTIMIZER.opt_name, lr=cfg.OPTIMIZER.lr, params=cfg.OPTIMIZER.params)
+    
+    model, optimizer, trn_dataloader, val_dataloader, tst_dataloader = accelerator.prepare(
+        model, optimizer, trn_dataloader, val_dataloader, tst_dataloader
+    )
 
     training_dl(
-    model                 = model,
-    trn_dataloader        = trn_dataloader,
-    val_dataloader        = val_dataloader,
-    criterion             = criterion,
+    model                 = model, 
+    trn_dataloader        = trn_dataloader, 
+    val_dataloader        = val_dataloader, 
+    criterion             = criterion, 
     optimizer             = optimizer,
-    optimizer2            = optimizer2,
-    accelerator           = accelerator,
+    accelerator           = accelerator, 
     savedir               = savedir,
     epochs                = cfg.TRAIN.epoch,
-    eval_epochs           = cfg.TRAIN.eval_epochs,
+    eval_epochs           = cfg.TRAIN.eval_epochs, 
     log_epochs            = cfg.TRAIN.log_epochs,
     log_eval_iter         = cfg.TRAIN.log_eval_iter,
-    use_wandb             = cfg.TRAIN.wandb.use,
+    use_wandb             = cfg.TRAIN.wandb.use, 
     wandb_iter            = cfg.TRAIN.wandb.iter,
     ckp_metric            = cfg.TRAIN.ckp_metric,
     model_name            = cfg.MODEL.modelname,
@@ -165,7 +141,7 @@ def main(cfg):
     early_stopping_count  = cfg.TRAIN.early_stopping_count,
     lradj                 = cfg.TRAIN.lradj,
     learning_rate         = cfg.OPTIMIZER.lr,
-    model_config          = cfg.MODELSETTING,
+    model_config          = cfg.MODELSETTING
     )
 
     # load best checkpoint weights
@@ -173,18 +149,17 @@ def main(cfg):
     
     # test results
     test_metrics = test_dl(
-    model         = model,
-    dataloader    = tst_dataloader,
-    criterion     = criterion,
+    model         = model, 
+    dataloader    = tst_dataloader,     
+    criterion     = criterion, 
     accelerator   = accelerator,
-    log_interval  = cfg.TRAIN.log_eval_iter,
+    log_interval  = cfg.TRAIN.log_eval_iter, 
     savedir       = savedir,
     model_config  = cfg.MODELSETTING,
     model_name    = cfg.MODEL.modelname,
     name          = 'TEST',
     return_output = cfg.TRAIN.return_output,
-    plot_result   = cfg.TRAIN.plot_result,
-    n_epochs      = cfg.TRAIN.epoch,
+    plot_result   = cfg.TRAIN.plot_result
     )
 
     accelerator.wait_for_everyone()

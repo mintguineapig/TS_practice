@@ -7,9 +7,8 @@ LSTM_AE:
   dropout: 0.1
   res_connection: false
   return_hiddens: false
-
-USAD:
-  # latent_size: 잠재 공간 크기 (w_size = seq_len * dim_in 에 비해 충분히 작게 설정)
-  # 논문 기본값은 w_size / 4 ~ w_size / 10 권장
-  latent_size: 40
-  # seq_len, dim_in 은 main.py 의 update_information 에서 자동으로 주입됩니다.
+  # RevIN 설정
+  use_revin: true           # RevIN 사용 여부
+  revin_affine: true        # 학습 가능한 γ, β 파라미터 사용 여부
+  revin_subtract_last: false  # true 시 평균 대신 마지막 시점 값 기준으로 정규화
+  revin_eps: 0.00001        # 수치 안정성을 위한 epsilon

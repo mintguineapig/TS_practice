@@ -32,9 +32,7 @@ def update_information(cfg, section, **kwargs):
 
 def adjust_learning_rate(optimizer, epoch, lradj, learning_rate):
     # lr = learning_rate * (0.2 ** (epoch // 2))
-    if lradj == 'none':
-        return  # LR 고정 (논문 기본 설정)
-    elif lradj == 'type1':
+    if lradj == 'type1':
         lr_adjust = {epoch: learning_rate * (0.5 ** ((epoch - 1) // 1))}
     elif lradj == 'type2':
         lr_adjust = {
@@ -48,9 +46,7 @@ def adjust_learning_rate(optimizer, epoch, lradj, learning_rate):
     elif lradj == 'type5':
         lr_adjust = {epoch: learning_rate if epoch < 25 else learning_rate*0.1}
     elif lradj == 'type6':
-        lr_adjust = {epoch: learning_rate if epoch < 5 else learning_rate*0.1}
-    else:
-        return
+        lr_adjust = {epoch: learning_rate if epoch < 5 else learning_rate*0.1}  
     if epoch in lr_adjust.keys():
         lr = lr_adjust[epoch]
         for param_group in optimizer.param_groups:

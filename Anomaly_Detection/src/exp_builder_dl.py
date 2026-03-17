@@ -31,12 +31,11 @@ class AverageMeter:
         self.avg = self.sum / self.count
 
 def training_dl(
-    model, trn_dataloader, val_dataloader, criterion, optimizer, accelerator: Accelerator,
-    savedir: str, epochs: int, eval_epochs: int, log_epochs: int, log_eval_iter: int,
-    use_wandb: bool, wandb_iter: int, ckp_metric: str, model_name: str,
+    model, trn_dataloader, val_dataloader, criterion, optimizer, accelerator: Accelerator, 
+    savedir: str, epochs: int, eval_epochs: int, log_epochs: int, log_eval_iter: int, 
+    use_wandb: bool, wandb_iter: int, ckp_metric: str, model_name: str, 
     early_stopping_metric: str, early_stopping_count: int,
-    lradj: int, learning_rate: int, model_config: dict,
-    optimizer2=None):
+    lradj: int, learning_rate: int, model_config: dict):
     
     # avereage meter
     batch_time_m = AverageMeter()
@@ -69,98 +68,59 @@ def training_dl(
             - model은 LSTM_AE를 사용하고 있기 때문에, 코드 참고하여 작성
             - 모든 모델에서 모델만 변경할 경우 작동될 수 있도록 구현
             """
+            # 데이터 추출 (BuildDataset의 dict 반환 형태에 맞게)
+            inputs = item['sequence']
+            targets = inputs  # Auto-encoder: 입력 = 타겟
 
-            # 데이터 추출 (BuildDataset에서 반환하는 형태에 맞게)
-            if isinstance(item, (list, tuple)) and len(item) == 1:
-                inputs = item[0]  # 학습 시에는 sequence만
-                targets = inputs  # Auto-encoder이므로 입력=타겟
-            else:
-                inputs = item
-                targets = inputs
+            # 더미 타임스탬프 생성 (LSTM_AE forward signature에 맞게)
+            batch_size_cur, seq_len_cur, _ = inputs.shape
+            dummy_timestamps = torch.zeros(batch_size_cur, seq_len_cur).to(inputs.device)
 
-            # 더미 타임스탬프 생성 (LSTM_AE가 요구하는 파라미터)
-            batch_size, seq_len, _ = inputs.shape
-            dummy_timestamps = torch.zeros(batch_size, seq_len).to(inputs.device)
+            outputs, loss = model(inputs, dummy_timestamps, targets, criterion)
 
-            # ── USAD: 2-phase 학습 (optimizer2 가 있을 때) ─────────────────
-            if optimizer2 is not None:
-                # Phase 1 – AE1 최적화 (Encoder + Decoder1)
-                outputs, loss1 = model(
-                    inputs, dummy_timestamps, targets, criterion,
-                    epoch=epoch + 1, n_epochs=epochs, phase=1
-                )
-                loss1 = accelerator.gather(loss1).mean()
-                accelerator.backward(loss1)
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-                optimizer.step()
-                optimizer.zero_grad()
+            loss = accelerator.gather(loss).mean()
+            outputs, targets = accelerator.gather_for_metrics((outputs.contiguous(), targets.contiguous()))
 
-                # Phase 2 – AE2 최적화 (Encoder + Decoder2)
-                outputs, loss2 = model(
-                    inputs, dummy_timestamps, targets, criterion,
-                    epoch=epoch + 1, n_epochs=epochs, phase=2
-                )
-                loss2 = accelerator.gather(loss2).mean()
-                accelerator.backward(loss2)
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-                optimizer2.step()
-                optimizer2.zero_grad()
+            accelerator.backward(loss)
 
-                loss = (loss1 + loss2) / 2   # 로깅용 평균 손실
-                outputs, targets = accelerator.gather_for_metrics(
-                    (outputs.contiguous(), targets.contiguous())
-                )
+            # loss update
+            optimizer.step()
+            optimizer.zero_grad()
 
-            # ── 일반 모델 (LSTM_AE 등): 단일 optimizer ──────────────────────
-            else:
-                outputs, loss = model(inputs, dummy_timestamps, targets, criterion)
-                loss = accelerator.gather(loss).mean()
-                outputs, targets = accelerator.gather_for_metrics(
-                    (outputs.contiguous(), targets.contiguous())
-                )
-                accelerator.backward(loss)
+            losses_m.update(loss.item(), n=targets.size(0))
 
-                # gradient clipping 추가
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-
-                # loss update
-                optimizer.step()
-                optimizer.zero_grad()
-            
-            losses_m.update(loss.item(), n = targets.size(0))
-            
             # batch time
             batch_time_m.update(time.time() - end_time)
             wandb_iteration += 1
-            
-            if use_wandb and (wandb_iteration+1) % wandb_iter:
+
+            if use_wandb and (wandb_iteration + 1) % wandb_iter:
                 train_results = OrderedDict([
-                    ('lr',optimizer.param_groups[0]['lr']),
-                    ('train_loss',losses_m.avg)
+                    ('lr', optimizer.param_groups[0]['lr']),
+                    ('train_loss', losses_m.avg)
                 ])
-                wandb.log(train_results, step=idx+1)
-        
-        if (epoch+1) % log_epochs == 0:
+                wandb.log(train_results, step=idx + 1)
+
+        if (epoch + 1) % log_epochs == 0:
             _logger.info('EPOCH {:>3d}/{} | TRAIN [{:>4d}/{}] Loss: {loss.val:>6.4f} ({loss.avg:>6.4f}) '
-                        'LR: {lr:.3e} '
-                        'Time: {batch_time.val:.3f}s, {rate:>7.2f}/s ({batch_time.avg:.3f}s, {rate_avg:>7.2f}/s) '
-                        'Data: {data_time.val:.3f} ({data_time.avg:.3f})'.format(
-                        (epoch+1), epochs, 
-                        (idx+1), 
-                        len(trn_dataloader), 
-                        loss       = losses_m, 
-                        lr         = optimizer.param_groups[0]['lr'],
-                        batch_time = batch_time_m,
-                        rate       = inputs.size(0) / batch_time_m.val,
-                        rate_avg   = inputs.size(0) / batch_time_m.avg,
-                        data_time  = data_time_m))
+                         'LR: {lr:.3e} '
+                         'Time: {batch_time.val:.3f}s, {rate:>7.2f}/s ({batch_time.avg:.3f}s, {rate_avg:>7.2f}/s) '
+                         'Data: {data_time.val:.3f} ({data_time.avg:.3f})'.format(
+                         (epoch + 1), epochs,
+                         (idx + 1),
+                         len(trn_dataloader),
+                         loss       = losses_m,
+                         lr         = optimizer.param_groups[0]['lr'],
+                         batch_time = batch_time_m,
+                         rate       = inputs.size(0) / batch_time_m.val,
+                         rate_avg   = inputs.size(0) / batch_time_m.avg,
+                         data_time  = data_time_m))
             
                     
         if (epoch+1) % eval_epochs == 0:
             eval_metrics = test_dl(
                 accelerator   = accelerator,
-                model         = model,
-                dataloader    = val_dataloader,
+                model         = model, 
+                dataloader    = val_dataloader, 
                 criterion     = criterion,
                 name          = 'VALID',
                 log_interval  = log_eval_iter,
@@ -168,7 +128,6 @@ def training_dl(
                 model_name    = model_name,
                 model_config  = model_config,
                 return_output = False,
-                n_epochs      = epochs,
                 )
 
             model.train()
@@ -205,7 +164,7 @@ def training_dl(
                     _logger.info("\n✅ Saved best model")
                 best_score = eval_metrics[ckp_metric]
                 
-            early_stopping(eval_metrics['loss'])
+            early_stopping(eval_metrics[early_stopping_metric])
             if early_stopping.early_stop:
                 _logger.info("⏳ Early stopping triggered")
                 break
@@ -228,10 +187,9 @@ def training_dl(
         json.dump(state, open(os.path.join(savedir, f'latest_results.json'),'w'), indent='\t', cls=Float32Encoder)
     _logger.info("\n🎉 Training complete for all datasets")
     
-def test_dl(model, dataloader, criterion, accelerator: Accelerator, log_interval: int,
-            savedir: str, model_config: dict, model_name: str, name: str = 'TEST',
-            return_output: bool = False, plot_result: bool = False,
-            n_epochs: int = 1) -> dict:
+def test_dl(model, dataloader, criterion, accelerator: Accelerator, log_interval: int, 
+            savedir: str, model_config: dict, model_name: str, name: str = 'TEST', 
+            return_output: bool = False, plot_result:bool = False) -> dict:
     _logger.info(f'\n[🔍 Start {name} Evaluation]')
 
     batch_time_m = AverageMeter()
@@ -252,29 +210,25 @@ def test_dl(model, dataloader, criterion, accelerator: Accelerator, log_interval
         for idx, item in enumerate(dataloader):
             data_time_m.update(time.time() - end_time)
 
-            # 데이터 추출
-            if isinstance(item, (list, tuple)):
-                if len(item) == 2:  # (sequence, label)
-                    inputs, labels = item
-                    total_label.append(labels.detach().cpu().numpy())
-                else:  # (sequence,)
-                    inputs = item[0]
-            else:
-                inputs = item
+            """
+            목적: 구성한 Dataloader를 바탕으로 모델의 입력을 구성
+            조건
+            - 구성한 Dataloader에 적합한 입력을 통하여 모델의 출력을 계산
+            - model은 LSTM_AE를 사용하고 있기 때문에, 코드 참고하여 작성
+            """
+            # 데이터 추출 (BuildDataset의 dict 반환 형태에 맞게)
+            inputs = item['sequence']
+            targets = inputs  # Auto-encoder: 입력 = 타겟
 
-            targets = inputs  # Auto-encoder
-            
             # 더미 타임스탬프 생성
-            batch_size, seq_len, _ = inputs.shape
-            dummy_timestamps = torch.zeros(batch_size, seq_len).to(inputs.device)
-            
-            # 모델 호출 (anomaly score 계산 포함)
-            outputs, loss, score = model(
-                inputs, dummy_timestamps, targets, criterion,
-                cal_score=True, n_epochs=n_epochs
-            )
+            batch_size_cur, seq_len_cur, _ = inputs.shape
+            dummy_timestamps = torch.zeros(batch_size_cur, seq_len_cur).to(inputs.device)
+
+            # anomaly score 계산 포함하여 모델 호출
+            outputs, loss, score = model(inputs, dummy_timestamps, targets, criterion, cal_score=True)
 
             loss = accelerator.gather(loss).mean()
+            loss = torch.mean(loss)
             outputs, targets = accelerator.gather_for_metrics((outputs.contiguous(), targets.contiguous()))
 
             losses_m.update(loss.item(), n=inputs.size(0))
@@ -284,6 +238,12 @@ def test_dl(model, dataloader, criterion, accelerator: Accelerator, log_interval
             total_outputs.append(outputs)
             total_score.append(score)
             total_targets.append(targets)
+            if 'timestamp' in item:
+                total_timestamp.append(item['timestamp'].detach().cpu().numpy())
+
+            if 'label' in item:
+                label = item['label'].detach().cpu().numpy()
+                total_label.append(label)
 
             batch_time_m.update(time.time() - end_time)
 
@@ -310,43 +270,49 @@ def test_dl(model, dataloader, criterion, accelerator: Accelerator, log_interval
     - 'metrics.py'의 cal_metric, bf_search, calc_seq 함수 참고하여 작성
     - 'VALID' 시에는 reconstruction loss만 도출
     """
-    # 평가 지표 계산
     history = {'loss': losses_m.avg}
-    
+
     if name == 'TEST' and len(total_label) > 0:
-        # 이상탐지 평가 지표 계산 (테스트 시에만)
         all_labels = np.concatenate(total_label, axis=0).flatten()
         all_scores = np.concatenate(total_score, axis=0)
-        
-        # 스코어 크기를 라벨과 맞추기 (sequence-level로 평균)
+
+        # score 차원 축소: [N, features] → [N]
         if len(all_scores.shape) > 1:
-            all_scores = np.mean(all_scores, axis=1)  # [batch*seq, features] -> [batch*seq]
-        
-        # 라벨과 스코어 크기 맞추기
+            all_scores = np.mean(all_scores, axis=1)
+
+        # 라벨과 스코어 길이 맞추기
         min_len = min(len(all_labels), len(all_scores))
         all_labels = all_labels[:min_len]
         all_scores = all_scores[:min_len]
-        
-        # 간단한 threshold 기반 평가 (percentile 사용)
-        threshold = np.percentile(all_scores, 95)  # 상위 5%를 이상으로 판단
-        predictions = (all_scores > threshold).astype(int)
-        
-        # 기본 분류 지표 계산
-        from sklearn.metrics import precision_score, recall_score, f1_score
-        precision = precision_score(all_labels, predictions, zero_division=0)
-        recall = recall_score(all_labels, predictions, zero_division=0)
-        f1 = f1_score(all_labels, predictions, zero_division=0)
-        
+
+        # Best-F1 threshold 탐색 (start=score 최솟값, end=최댓값, step_num=100)
+        score_min = float(np.min(all_scores))
+        score_max = float(np.max(all_scores))
+        best_metrics, best_threshold = bf_search(
+            score=all_scores, label=all_labels,
+            start=score_min, end=score_max, step_num=100, verbose=False
+        )
+        # best_metrics: [f1, precision, recall, TP, TN, FP, FN, roc_auc, auprc, latency]
+        best_f1, best_precision, best_recall = best_metrics[0], best_metrics[1], best_metrics[2]
+        roc_auc = best_metrics[6] if len(best_metrics) > 6 else float('nan')
+        auprc   = best_metrics[7] if len(best_metrics) > 7 else float('nan')
+
         history.update({
-            'precision': precision,
-            'recall': recall,
-            'f1': f1,
-            'threshold': threshold
+            'f1':        best_f1,
+            'precision': best_precision,
+            'recall':    best_recall,
+            'roc_auc':   roc_auc,
+            'auprc':     auprc,
+            'threshold': best_threshold,
         })
-        
-        _logger.info(f'{name} Results - Loss: {history["loss"]:.4f}, F1: {history["f1"]:.4f}, '
-                    f'Precision: {history["precision"]:.4f}, Recall: {history["recall"]:.4f}')
+
+        _logger.info(
+            f'{name} Results - Loss: {history["loss"]:.4f}, '
+            f'F1: {history["f1"]:.4f}, '
+            f'Precision: {history["precision"]:.4f}, '
+            f'Recall: {history["recall"]:.4f}'
+        )
     else:
         _logger.info(f'{name} Results - Loss: {history["loss"]:.4f}')
-    
+
     return history

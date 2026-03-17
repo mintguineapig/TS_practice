@@ -6,7 +6,7 @@ class BuildDataset(Dataset):
     """
     시계열 데이터를 sliding window 방식으로 처리하는 Dataset 클래스
     """
-    
+
     def __init__(self, data, timestamps=None, labels=None, seq_len=100, stride_len=1):
         """
         Args:
@@ -21,33 +21,33 @@ class BuildDataset(Dataset):
         self.labels = labels
         self.seq_len = seq_len
         self.stride_len = stride_len
-        
-        # 시퀀스 인덱스 계산
+
+        # 슬라이딩 윈도우 인덱스 계산
         self.indices = self._calculate_indices()
-    
+
     def _calculate_indices(self):
-        """슬라이딩 윈도우 인덱스 계산"""
+        """슬라이딩 윈도우 시작 인덱스 목록 계산"""
         max_start = len(self.data) - self.seq_len + 1
-        indices = list(range(0, max_start, self.stride_len))
-        return indices
-    
+        return list(range(0, max_start, self.stride_len))
+
     def __len__(self):
         return len(self.indices)
-    
-    def __getitem__(self, idx):
-        """
-        Returns:
-            sequence: [seq_len, features] 시계열 시퀀스
-            label: 레이블 (있는 경우) - 이상탐지에서는 해당 시퀀스의 마지막 포인트 레이블
-        """
+
+    def __getitem__(self, idx: int) -> dict:
         start_idx = self.indices[idx]
         end_idx = start_idx + self.seq_len
-        
+
         sequence = torch.FloatTensor(self.data[start_idx:end_idx])
-        
+
+        item = {'sequence': sequence}
+
+        if self.timestamps is not None:
+            item['timestamp'] = torch.FloatTensor(
+                np.array(self.timestamps[start_idx:end_idx], dtype=np.float32)
+            )
+
         if self.labels is not None:
-            # 이상탐지에서는 시퀀스의 마지막 시점 레이블 사용
-            label = torch.LongTensor([self.labels[end_idx - 1]])
-            return sequence, label
-        else:
-            return sequence
+            # 시퀀스의 마지막 시점 레이블 사용
+            item['label'] = torch.tensor(self.labels[end_idx - 1], dtype=torch.long)
+
+        return item

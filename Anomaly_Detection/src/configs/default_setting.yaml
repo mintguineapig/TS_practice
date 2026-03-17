@@ -3,7 +3,7 @@ DEFAULT:
   seed: 42
 
 DATASET:
-  datadir: datasets
+  datadir: ../../Time-series-AD_2025/src/datasets
   dataname: PSM
   scaler: standard
   batch_size: 128
@@ -17,11 +17,11 @@ DATASET:
   val_split_rate: 0.1
   bank_name: ['IUR']
   merge_bank: False
-  time_embedding: [0, 'd']
+  time_embedding: []
   del_feature: null
 
 TRAIN:
-  epoch: 1
+  epoch: 10
   ckp_metric: loss
   eval_epochs: 1
   log_epochs: 1
@@ -33,25 +33,25 @@ TRAIN:
   fine_tuning_method: full
   grad_accum_steps: 1
   mixed_precision: 'no'
-  early_stopping_metric: 'MSE'
+  early_stopping_metric: loss
   lradj: 'type1'
   return_output: false
   plot_result: false
-  del_pt_file: True
+  del_pt_file: false
   wandb: 
     use: false
     iter: 500
     exp_name: default
-    project_name: 'ts_pretraining'
-    entity: hayeon
+    project_name: 'KoreaBank'
+    entity: jinwoo
 LOSS:
   loss_name: mse
 
 OPTIMIZER:
   opt_name: adamw
-  lr: 0.00001
+  lr: 0.0001
   params:
-    weight_decay: 0.0001
+    weight_decay: 0.0005
 
 RESULT:
   savedir: './saved_model'

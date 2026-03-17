@@ -1,4 +1,5 @@
 import torch
+from typing import Optional
 from torch.utils.data import DataLoader
 from data_provider.load_dataset import load_dataset
 from data_provider.build_dataset import BuildDataset
@@ -24,7 +25,7 @@ def create_dataloader(
                 bank_name: list,
                 merge_bank: bool,
                 time_embedding: list,
-                del_feature: list = None
+                del_feature: Optional[list] = None
                 ):
 
     """
@@ -37,77 +38,81 @@ def create_dataloader(
     - tst_dataloader는 label이 포함되어야함
     - 최대한 범용적으로 사용할 수 있게끔 코드 작성
     """
-    
+
     trn, trn_ts, val, val_ts, tst, tst_ts, var, label = load_dataset(
-        datadir = datadir,
-        dataname = dataname,
+        datadir        = datadir,
+        dataname       = dataname,
         time_embedding = time_embedding,
-        del_feature = del_feature
-                            )
-    
+        del_feature    = del_feature
+    )
+
     # scaling (minmax, minmax square, minmax m1p1, standard)
     trn, val, tst = apply_scaling(
-        trn_data = trn,
-        val_data = val,
-        tst_data = tst,
+        trn_data    = trn,
+        val_data    = val,
+        tst_data    = tst,
         scaler_type = scaler
-                    )
+    )
 
     # build dataset
     trn_dataset = BuildDataset(
-        data=trn,
-        timestamps=trn_ts,
-        labels=None,
-        seq_len=seq_len,
-        stride_len=stride_len
-    )
-    
-    val_dataset = None
-    if val is not None:
-        val_dataset = BuildDataset(
-            data=val,
-            timestamps=val_ts,
-            labels=None,
-            seq_len=seq_len,
-            stride_len=stride_len
-        )
-    
-    tst_dataset = BuildDataset(
-        data=tst,
-        timestamps=tst_ts,
-        labels=label,
-        seq_len=seq_len,
-        stride_len=stride_len
+        data       = trn,
+        timestamps = trn_ts,
+        labels     = None,
+        seq_len    = seq_len,
+        stride_len = stride_len
     )
 
-        # torch dataloader
+    val_dataset = BuildDataset(
+        data       = val,
+        timestamps = val_ts,
+        labels     = None,
+        seq_len    = seq_len,
+        stride_len = stride_len
+    )
+
+    tst_dataset = BuildDataset(
+        data       = tst,
+        timestamps = tst_ts,
+        labels     = label,
+        seq_len    = seq_len,
+        stride_len = stride_len
+    )
+
+    # torch dataloader
     trn_dataloader = DataLoader(
         trn_dataset,
-        batch_size=batch_size,
-        shuffle=shuffle,
-        num_workers=num_workers,
-        pin_memory=pin_memory,
-        drop_last=drop_last
+        batch_size  = batch_size,
+        shuffle     = shuffle,
+        num_workers = num_workers,
+        pin_memory  = pin_memory,
+        drop_last   = drop_last
     )
-    
-    val_dataloader = None
-    if val_dataset is not None:
-        val_dataloader = DataLoader(
-            val_dataset,
-            batch_size=batch_size,
-            shuffle=False,
-            num_workers=num_workers,
-            pin_memory=pin_memory,
-            drop_last=False
-        )
-    
+
+    val_dataloader = DataLoader(
+        val_dataset,
+        batch_size  = batch_size,
+        shuffle     = False,
+        num_workers = num_workers,
+        pin_memory  = pin_memory,
+        drop_last   = False
+    )
+
     tst_dataloader = DataLoader(
         tst_dataset,
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=num_workers,
-        pin_memory=pin_memory,
-        drop_last=False
+        batch_size  = batch_size,
+        shuffle     = False,
+        num_workers = num_workers,
+        pin_memory  = pin_memory,
+        drop_last   = False
     )
+
+    return trn_dataloader, val_dataloader, tst_dataloader, var
+
+
+    # torch dataloader
+    trn_dataloader = None
+    val_dataloader = None
+    tst_dataloader = None
 
     return trn_dataloader, val_dataloader, tst_dataloader, var
